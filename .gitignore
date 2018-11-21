@@ -1,0 +1,4 @@
+*__pycache__
+siamese-net/runs
+hierachical*.txt
+kmeans*.txt
