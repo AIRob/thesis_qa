@@ -223,7 +223,7 @@ with tf.Graph().as_default():
                 siameseModel.dropout_keep_prob: 1.0,
             }
         step, loss, accuracy, sim, summaries = sess.run([global_step, siameseModel.loss, siameseModel.accuracy, siameseModel.temp_sim, dev_summary_op],  feed_dict)
-        time_str = datetime.datetime.now().isoformat()
+        #time_str = datetime.datetime.now().isoformat()
         #print("DEV {}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
         dev_summary_writer.add_summary(summaries, step)
         #print (y_batch, sim)
@@ -243,7 +243,7 @@ with tf.Graph().as_default():
             sum_acc = sum_acc + acc
             sum_loss+=loss
         print("")
-        avg_loss,avg_accu = loss/cnt,accu/cnt
+        avg_loss,avg_accu = sum_loss/cnt,sum_acc/cnt
         print('loss %.3f accu:%.3f'%(avg_loss,avg_accu))
         return avg_loss,avg_accu
     # Generate batches
