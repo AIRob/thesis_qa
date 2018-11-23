@@ -37,9 +37,8 @@ class SiameseLSTM(object):
     
     def contrastive_loss(self, y,d,batch_size):
         tmp= y *tf.square(d)
-        #tmp= tf.mul(y,tf.square(d))
         tmp2 = (1-y) *tf.square(tf.maximum((1 - d),0))
-        return tf.reduce_sum(tmp +tmp2)/batch_size/2
+        return tf.reduce_sum(tmp +tmp2)
     
     def __init__(
         self, sequence_length, vocab_size, embedding_size, hidden_units, l2_reg_lambda, batch_size):
