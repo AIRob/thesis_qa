@@ -234,8 +234,7 @@ with tf.Graph().as_default():
         cnt = 0
         for db in batches:
             cnt = cnt+1
-            if len(db)<1:
-                continue
+            assert len(db)>0
             x1_dev_b,x2_dev_b,y_dev_b = zip(*db)
             loss,acc = dev_step(x1_dev_b, x2_dev_b, y_dev_b)
             sum_acc = sum_acc + acc
@@ -255,21 +254,25 @@ with tf.Graph().as_default():
     for nn in range(sum_no_of_batches*FLAGS.num_epochs+1):
         batch = next(batches)
         assert len(batch)>0
-        if len(batch)<1:
-            continue
         x1_batch,x2_batch, y_batch = zip(*batch)
         current_step = tf.train.global_step(sess, global_step)  
         loss,accu = train_step(x1_batch, x2_batch, y_batch)
-        step_in_epoch+=1
+        
         loss_sum+=loss
         accu_sum+=accu
 
+        step_in_epoch+=1
 
-
-        if current_step%sum_no_of_batches == 0:
+        if step_in_epoch == sum_no_of_batches:
             current_epoch+=1
             print('epoch %d'%(current_epoch))
-            print('training loss:%.3f accu:%.3f'%(loss_sum/step_in_epoch,accu_sum/step_in_epoch))  
+            print('training loss:%.3f accu:%.3f'%(loss_sum/step_in_epoch,accu_sum/step_in_epoch))
+            print("Evaluation:")
+            dev_batches = inpH.batch_iter(list(zip(dev_set[0],dev_set[1],dev_set[2])), FLAGS.batch_size, 1)
+            dev_loss,dev_accu = eval_batch(dev_batches)
+            print('dev loss %.3f %.3f'%(dev_loss,dev_accu))
+            print("")
+
             step_in_epoch = 0
             loss_sum = 0
             accu_sum = 0
@@ -278,18 +281,14 @@ with tf.Graph().as_default():
             print('step %d in epoch %d'%(step_in_epoch,current_epoch))
             
 
-        if current_epoch % FLAGS.evaluate_every == 0:
-            print("Evaluation:")
-            dev_batches = inpH.batch_iter(list(zip(dev_set[0],dev_set[1],dev_set[2])), FLAGS.batch_size, 1)
-            dev_loss,dev_accu = eval_batch(dev_batches)
-            print('dev loss %.3f %.3f'%(dev_loss,dev_accu))
-            print("")
-        if current_epoch  % FLAGS.checkpoint_every == 0:
+        if current_epoch  % FLAGS.checkpoint_every == 0 and step_in_epoch == 0:
             if dev_accu >= max_validation_acc:
                 max_validation_acc = dev_accu
                 saver.save(sess, checkpoint_prefix, global_step=current_step)
                 tf.train.write_graph(sess.graph.as_graph_def(), checkpoint_prefix, "graph"+str(current_epoch)+".pb", as_text=False)
                 print("Saved model {} with sum_accuracy={} checkpoint to {}".format(nn, max_validation_acc, checkpoint_prefix))
+        
+        
                 
     saver.save(sess, checkpoint_prefix, global_step=current_step)
     tf.train.write_graph(sess.graph.as_graph_def(), checkpoint_prefix, "graph_final"+".pb", as_text=False)
