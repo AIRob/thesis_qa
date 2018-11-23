@@ -23,7 +23,7 @@ tf.flags.DEFINE_boolean("is_char_based", True, "is character based syntactic sim
 tf.flags.DEFINE_string("word2vec_model", "wiki.simple.vec", "word2vec pre-trained embeddings file (default: None)")
 tf.flags.DEFINE_string("word2vec_format", "text", "word2vec pre-trained embeddings file format (bin/text/textgz)(default: None)")
 
-tf.flags.DEFINE_integer("max_document_length", 100, "Max document length (default: 100)")
+tf.flags.DEFINE_integer("max_document_length", 50, "Max document length (default: 100)")
 tf.flags.DEFINE_integer("embedding_dim", 300, "Dimensionality of character embedding (default: 300)")
 tf.flags.DEFINE_float("dropout_keep_prob", 1.0, "Dropout keep probability (default: 1.0)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularizaion lambda (default: 0.0)")
@@ -32,9 +32,9 @@ tf.flags.DEFINE_integer("hidden_units", 50, "Number of hidden units (default:50)
 
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 8, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 300, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 1000, "Evaluate model on dev set after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
+tf.flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 200)")
+tf.flags.DEFINE_integer("evaluate_every", 1, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("checkpoint_every", 10, "Save model after this many steps (default: 100)")
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
@@ -237,14 +237,10 @@ with tf.Graph().as_default():
             if len(db)<1:
                 continue
             x1_dev_b,x2_dev_b,y_dev_b = zip(*db)
-            if len(y_dev_b)<1:
-                continue
             loss,acc = dev_step(x1_dev_b, x2_dev_b, y_dev_b)
             sum_acc = sum_acc + acc
             sum_loss+=loss
-        print("")
         avg_loss,avg_accu = sum_loss/cnt,sum_acc/cnt
-        print('loss %.3f accu:%.3f'%(avg_loss,avg_accu))
         return avg_loss,avg_accu
     # Generate batches
     batches=inpH.batch_iter(
@@ -258,23 +254,22 @@ with tf.Graph().as_default():
     accu_sum = 0
     for nn in range(sum_no_of_batches*FLAGS.num_epochs+1):
         batch = next(batches)
+        assert len(batch)>0
         if len(batch)<1:
             continue
         x1_batch,x2_batch, y_batch = zip(*batch)
-        if len(y_batch)<1:
-            continue
         current_step = tf.train.global_step(sess, global_step)  
-
-
         loss,accu = train_step(x1_batch, x2_batch, y_batch)
         step_in_epoch+=1
         loss_sum+=loss
         accu_sum+=accu
 
+
+
         if current_step%sum_no_of_batches == 0:
             current_epoch+=1
             print('epoch %d'%(current_epoch))
-            print('loss:%.3f accu:%.3f'%(loss_sum/step_in_epoch,accu_sum/step_in_epoch))  
+            print('training loss:%.3f accu:%.3f'%(loss_sum/step_in_epoch,accu_sum/step_in_epoch))  
             step_in_epoch = 0
             loss_sum = 0
             accu_sum = 0
@@ -283,13 +278,19 @@ with tf.Graph().as_default():
             print('step %d in epoch %d'%(step_in_epoch,current_epoch))
             
 
-        if current_step % FLAGS.evaluate_every == 0:
-            print("\nEvaluation:")
+        if current_epoch % FLAGS.evaluate_every == 0:
+            print("Evaluation:")
             dev_batches = inpH.batch_iter(list(zip(dev_set[0],dev_set[1],dev_set[2])), FLAGS.batch_size, 1)
             dev_loss,dev_accu = eval_batch(dev_batches)
-        if current_step % FLAGS.checkpoint_every == 0:
+            print('dev loss %.3f %.3f'%(dev_loss,dev_accu))
+            print("")
+        if current_epoch  % FLAGS.checkpoint_every == 0:
             if dev_accu >= max_validation_acc:
                 max_validation_acc = dev_accu
                 saver.save(sess, checkpoint_prefix, global_step=current_step)
-                tf.train.write_graph(sess.graph.as_graph_def(), checkpoint_prefix, "graph"+str(nn)+".pb", as_text=False)
-                print("Saved model {} with sum_accuracy={} checkpoint to {}\n".format(nn, max_validation_acc, checkpoint_prefix))
+                tf.train.write_graph(sess.graph.as_graph_def(), checkpoint_prefix, "graph"+str(current_epoch)+".pb", as_text=False)
+                print("Saved model {} with sum_accuracy={} checkpoint to {}".format(nn, max_validation_acc, checkpoint_prefix))
+                
+    saver.save(sess, checkpoint_prefix, global_step=current_step)
+    tf.train.write_graph(sess.graph.as_graph_def(), checkpoint_prefix, "graph_final"+".pb", as_text=False)
+    print("Saved model {} with sum_accuracy={} checkpoint to {}".format(nn, max_validation_acc, checkpoint_prefix))   

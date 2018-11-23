@@ -42,7 +42,7 @@ print("\nEvaluating...\n")
 # Evaluation
 # ==================================================
 checkpoint_file = FLAGS.model
-print checkpoint_file
+print(checkpoint_file)
 graph = tf.Graph()
 with graph.as_default():
     session_conf = tf.ConfigProto(

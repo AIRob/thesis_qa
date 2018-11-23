@@ -10,7 +10,8 @@ from gensim.models.word2vec import Word2Vec
 import gzip
 from random import random
 from preprocess import MyVocabularyProcessor
-import sys
+import sys,os
+import pickle as pkl
 #reload(sys)
 
 class InputHelper(object):
@@ -78,32 +79,6 @@ class InputHelper(object):
             y.append(int(l[2]))
         return np.asarray(x1),np.asarray(x2),np.asarray(y)
 
-    def getTsvDataCharBased(self, filepath):
-        print("Loading training data from "+filepath)
-        x1=[]
-        x2=[]
-        y=[]
-        # positive samples from file
-        for line in open(filepath,encoding="utf-8"):
-            l=line.strip().split("\t")
-            if len(l)<2:
-                continue
-            if random() > 0.5:
-               x1.append(l[0].lower())
-               x2.append(l[1].lower())
-            else:
-               x1.append(l[1].lower())
-               x2.append(l[0].lower())
-            y.append(1)#np.array([0,1]))
-        # generate random negative samples
-        combined = np.asarray(x1+x2)
-        shuffle_indices = np.random.permutation(np.arange(len(combined)))
-        combined_shuff = combined[shuffle_indices]
-        for i in range(len(combined)):
-            x1.append(combined[i])
-            x2.append(combined_shuff[i])
-            y.append(0) #np.array([1,0]))
-        return np.asarray(x1),np.asarray(x2),np.asarray(y)
 
 
     def getTsvTestData(self, filepath):
@@ -127,8 +102,11 @@ class InputHelper(object):
         """
         data = np.asarray(data)
         data_size = len(data)
-        num_batches_per_epoch = int(len(data)/batch_size) + 1
-        for epoch in range(num_epochs):
+        num_batches_per_epoch = len(data)//batch_size
+        if len(data)%batch_size != 0:
+            num_batches_per_epoch+=1 
+        
+        for _ in range(num_epochs):
             # Shuffle the data at each epoch
             if shuffle:
                 shuffle_indices = np.random.permutation(np.arange(data_size))
@@ -161,17 +139,24 @@ class InputHelper(object):
     # ==================================================
     
     
-    def getDataSets(self, training_paths, max_document_length, percent_dev, batch_size, is_char_based):
-        if is_char_based:
-            x1_text, x2_text, y=self.getTsvDataCharBased(training_paths)
+    def getDataSets(self, training_path, max_document_length, percent_dev, batch_size, is_char_based):
+        if is_char_based :
+            form = 'char'
         else:
-            x1_text, x2_text, y=self.getTsvData(training_paths)
+            form = 'word'
+        dataset_cache_path = '%s_%s.cache'%(training_path,form)
+
+        if os.path.exists(dataset_cache_path):
+            train_set,dev_set,vocab_processor = pkl.load(open(dataset_cache_path,'rb'))
+            sum_no_of_batches = len(train_set[2])//batch_size
+            return train_set,dev_set,vocab_processor,sum_no_of_batches
+        
+        x1_text, x2_text, y=self.getTsvData(training_path)
         # Build vocabulary
         print("Building vocabulary")
         vocab_processor = MyVocabularyProcessor(max_document_length,min_frequency=0,is_char_based=is_char_based)
         vocab_processor.fit_transform(np.concatenate((x2_text,x1_text),axis=0))
         print("Length of loaded vocabulary ={}".format( len(vocab_processor.vocabulary_)))
-        i1=0
         train_set=[]
         dev_set=[]
         sum_no_of_batches = 0
@@ -192,11 +177,16 @@ class InputHelper(object):
         x1_train, x1_dev = x1_shuffled[:dev_idx], x1_shuffled[dev_idx:]
         x2_train, x2_dev = x2_shuffled[:dev_idx], x2_shuffled[dev_idx:]
         y_train, y_dev = y_shuffled[:dev_idx], y_shuffled[dev_idx:]
-        print("Train/Dev split for {}: {:d}/{:d}".format(training_paths, len(y_train), len(y_dev)))
-        sum_no_of_batches = sum_no_of_batches+(len(y_train)//batch_size)
+        print("Train/Dev split for {}: {:d}/{:d}".format(training_path, len(y_train), len(y_dev)))
+        sum_no_of_batches = len(y_train)//batch_size
         train_set=(x1_train,x2_train,y_train)
         dev_set=(x1_dev,x2_dev,y_dev)
         gc.collect()
+
+        print('dump to %s'%(dataset_cache_path))
+        with open(dataset_cache_path,'wb') as f:
+            pkl.dump((train_set,dev_set,vocab_processor),f)
+        
         return train_set,dev_set,vocab_processor,sum_no_of_batches
     
     def getTestDataSet(self, data_path, vocab_path, max_document_length):

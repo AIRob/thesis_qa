@@ -27,7 +27,14 @@ class MyVocabularyProcessor(learn.preprocessing.VocabularyProcessor):
                vocabulary=None,
                is_char_based=True):
         if is_char_based:
-            tokenizer_fn=tokenizer_char
+            print('i am using tokenizer_word but is char based for testing')
+            print('i am using tokenizer_word but is char based for testing')
+            print('i am using tokenizer_word but is char based for testing')
+            print('i am using tokenizer_word but is char based for testing')
+            print('i am using tokenizer_word but is char based for testing')
+            print('i am using tokenizer_word but is char based for testing')
+            tokenizer_fn=tokenizer_word
+            #tokenizer_fn=tokenizer_char
         else:
             tokenizer_fn=tokenizer_word
         sup = super(MyVocabularyProcessor,self)
