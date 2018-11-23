@@ -147,8 +147,10 @@ class InputHelper(object):
         dataset_cache_path = '%s_%s.cache'%(training_path,form)
 
         if os.path.exists(dataset_cache_path):
+            print('load cache from %s'%(dataset_cache_path))
             train_set,dev_set,vocab_processor = pkl.load(open(dataset_cache_path,'rb'))
             sum_no_of_batches = len(train_set[2])//batch_size
+            print('num of examples in training : %d'%(len(train_set[2])))
             return train_set,dev_set,vocab_processor,sum_no_of_batches
         
         x1_text, x2_text, y=self.getTsvData(training_path)
