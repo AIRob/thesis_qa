@@ -2,3 +2,6 @@
 siamese-net/runs
 hierachical*.txt
 kmeans*.txt
+*.cache
+validation.txt*
+todo.txt

@@ -37,6 +37,11 @@ class MyVocabularyProcessor(learn.preprocessing.VocabularyProcessor):
             #tokenizer_fn=tokenizer_char
         else:
             tokenizer_fn=tokenizer_word
+        
+        vocabulary = learn.preprocessing.CategoricalVocabulary()
+        vocabulary._mapping["<PAD>"] =0
+        vocabulary._mapping["<UNK>"] =1
+        vocabulary._reverse_mapping = ["<PAD>","<UNK>"]
         sup = super(MyVocabularyProcessor,self)
         sup.__init__(max_document_length,min_frequency,vocabulary,tokenizer_fn)
 

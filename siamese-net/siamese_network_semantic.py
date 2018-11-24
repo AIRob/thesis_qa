@@ -6,7 +6,7 @@ class SiameseLSTMw2v(object):
     A LSTM based deep Siamese network for text similarity.
     Uses an word embedding layer (looks up in pre-trained w2v), followed by a biLSTM and Energy Loss layer.
     """
-    
+   
     def stackedRNN(self, x, dropout, scope, embedding_size, sequence_length, hidden_units):
         n_hidden=hidden_units
         n_layers=3

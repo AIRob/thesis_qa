@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 import tensorflow as tf
 import numpy as np
 import re
@@ -13,6 +11,7 @@ from siamese_network_semantic import SiameseLSTMw2v
 from tensorflow.contrib import learn
 import gzip
 from random import random
+
 # Parameters
 # ==================================================
 
@@ -81,7 +80,7 @@ with tf.Graph().as_default():
     with sess.as_default():
         if FLAGS.is_char_based:
             siameseModel = SiameseLSTM(
-                sequence_length=max_document_length,
+                max_sequence_length=max_document_length,
                 vocab_size=len(vocab_processor.vocabulary_),
                 embedding_size=FLAGS.embedding_dim,
                 hidden_units=FLAGS.hidden_units,
@@ -100,7 +99,7 @@ with tf.Graph().as_default():
             )
         # Define Training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
-        optimizer = tf.train.AdamOptimizer(1e-2)
+        optimizer = tf.train.AdamOptimizer(1e-3)
         print("initialized siameseModel object")
     
     grads_and_vars=optimizer.compute_gradients(siameseModel.loss)

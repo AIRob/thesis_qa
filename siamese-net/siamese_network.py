@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from dyrnn import last_relevant,seq_length
 
 class SiameseLSTM(object):
     """
@@ -7,11 +8,10 @@ class SiameseLSTM(object):
     Uses an character embedding layer, followed by a biLSTM and Energy Loss layer.
     """
     
-    def BiRNN(self, x, dropout, scope, embedding_size, sequence_length, hidden_units):
+    def BiRNN(self, x, dropout, scope,embedding_size,sequence_length, hidden_units):
         n_hidden=hidden_units
         n_layers=3
         # Prepare data shape to match `static_rnn` function requirements
-        x = tf.unstack(tf.transpose(x, perm=[1, 0, 2]))
         # Define lstm cells with tensorflow
         # Forward direction cell
         with tf.name_scope("fw"+scope),tf.variable_scope("fw"+scope):
@@ -32,20 +32,23 @@ class SiameseLSTM(object):
         # Get lstm cell output
 
         with tf.name_scope("bw"+scope),tf.variable_scope("bw"+scope):
-            outputs, _, _ = tf.nn.static_bidirectional_rnn(lstm_fw_cell_m, lstm_bw_cell_m, x, dtype=tf.float32)
-        return outputs[-1]
+            outputs, _ = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell_m, lstm_bw_cell_m, x,sequence_length=sequence_length,dtype=tf.float32)
+            #outputs, _ = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell_m, lstm_bw_cell_m, x,sequence_length=sequence_length,dtype=tf.float32)
+            outputs = tf.concat(outputs, axis=2)
+        return outputs
     
     def contrastive_loss(self, y,d,batch_size):
         tmp= y *tf.square(d)
         tmp2 = (1-y) *tf.square(tf.maximum((1 - d),0))
-        return tf.reduce_sum(tmp +tmp2)
+        loss = tf.reduce_sum(tmp +tmp2)
+        return  loss/batch_size
     
     def __init__(
-        self, sequence_length, vocab_size, embedding_size, hidden_units, l2_reg_lambda, batch_size):
+        self, max_sequence_length, vocab_size, embedding_size, hidden_units, l2_reg_lambda, batch_size):
 
         # Placeholders for input, output and dropout
-        self.input_x1 = tf.placeholder(tf.int32, [None, sequence_length], name="input_x1")
-        self.input_x2 = tf.placeholder(tf.int32, [None, sequence_length], name="input_x2")
+        self.input_x1 = tf.placeholder(tf.int32, [None, max_sequence_length], name="input_x1")
+        self.input_x2 = tf.placeholder(tf.int32, [None, max_sequence_length], name="input_x2")
         self.input_y = tf.placeholder(tf.float32, [None], name="input_y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
 
@@ -64,11 +67,15 @@ class SiameseLSTM(object):
 
         # Create a convolution + maxpool layer for each filter size
         with tf.name_scope("output"):
-            self.out1=self.BiRNN(self.embedded_chars1, self.dropout_keep_prob, "side1", embedding_size, sequence_length, hidden_units)
-            self.out2=self.BiRNN(self.embedded_chars2, self.dropout_keep_prob, "side2", embedding_size, sequence_length, hidden_units)
-            self.distance = tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(self.out1,self.out2)),1,keep_dims=True))
-            self.distance = tf.div(self.distance, tf.add(tf.sqrt(tf.reduce_sum(tf.square(self.out1),1,keep_dims=True)),tf.sqrt(tf.reduce_sum(tf.square(self.out2),1,keep_dims=True))))
+            self.len1 = seq_length(self.input_x1)
+            self.len2 = seq_length(self.input_x2)
+            self.out1=self.BiRNN(self.embedded_chars1, self.dropout_keep_prob, "side1", embedding_size,self.len1 , hidden_units)
+            self.out2=self.BiRNN(self.embedded_chars2, self.dropout_keep_prob, "side2", embedding_size,self.len2, hidden_units)
+            self.last_out1,self.last_out2 = last_relevant(self.out1,self.len1),last_relevant(self.out2,self.len2)
+            self.distance = tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(self.last_out1,self.last_out2)),1,keep_dims=True))
+            self.distance = tf.div(self.distance, tf.add(tf.sqrt(tf.reduce_sum(tf.square(self.last_out1),1,keep_dims=True)),tf.sqrt(tf.reduce_sum(tf.square(self.last_out2),1,keep_dims=True))))
             self.distance = tf.reshape(self.distance, [-1], name="distance")
+
         with tf.name_scope("loss"):
             self.loss = self.contrastive_loss(self.input_y,self.distance, batch_size)
         #### Accuracy computation is outside of this class.
