@@ -100,7 +100,7 @@ with tf.Graph().as_default():
             )
         # Define Training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
-        optimizer = tf.train.AdamOptimizer(1e-3)
+        optimizer = tf.train.AdamOptimizer(1e-2)
         print("initialized siameseModel object")
     
     grads_and_vars=optimizer.compute_gradients(siameseModel.loss)
