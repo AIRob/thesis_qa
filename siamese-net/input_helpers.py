@@ -144,7 +144,7 @@ class InputHelper(object):
             form = 'char'
         else:
             form = 'word'
-        dataset_cache_path = '%s_%s.cache'%(training_path,form)
+        dataset_cache_path = '%s_%s_%d.cache'%(training_path,form,max_document_length)
 
         if os.path.exists(dataset_cache_path):
             print('load cache from %s'%(dataset_cache_path))
